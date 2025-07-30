@@ -68,7 +68,7 @@ class bioreactor:
             if not met['N']:
                 for i in range(len(met['S'])):
                     met['N'].append(str(i+1))
-            if not met['R']:
+            if not hasattr(met['R'], '__len__') or len(met['R']) == 0:
                 for i in range(len(met['N'])):
                     met['R'].append(1)
             elif len(met['R']) != len(met['N']):
@@ -76,39 +76,39 @@ class bioreactor:
             met['R'] = np.array(met['R'], dtype=float)
             if not met['type']:
                 met['type'] = 'default'  # Default metabolism type
-            if not met['v']:
+            if not hasattr(met['v'], '__len__') or len(met['v']) == 0:
                 raise ValueError("Maximum specific growth rates are missing in biologicals.")
             elif len(met['v']) != len(met['N']):
                 raise ValueError("Mismatch in number of maximum specific growth rates and phenotypes.")
             met['v'] = np.array(met['v'], dtype=float)
-            if not met['Ks']:
+            if not hasattr(met['Ks'], '__len__') or len(met['Ks']) == 0:
                 raise ValueError("Half-saturation constants are missing in biologicals.")
             elif len(met['Ks']) != len(met['N']):
                 raise ValueError("Mismatch in number of half-saturation constants and phenotypes.")
             met['Ks'] = np.array(met['Ks'], dtype=float)
-            if not met['Yx']:
+            if not hasattr(met['Yx'], '__len__') or len(met['Yx']) == 0:
                 raise ValueError("Yield coefficients are missing in biologicals.")
             elif len(met['Yx']) != len(met['N']):
                 raise ValueError("Mismatch in number of yield coefficients and phenotypes.")
             met['Yx'] = np.array(met['Yx'], dtype=float)
-            if not met['P']:
+            if not hasattr(met['P'], '__len__') or len(met['P']) == 0:
                 print("No product defined in biologicals, assuming None for all phenotypes.")
                 for i in range(len(met['N'])):
                     met['P'].append(None)
             elif len(met['P']) != len(met['N']):
                 raise ValueError("Mismatch in number of products and phenotypes.")
-            if not met['Yp']:
+            if not hasattr(met['Yp'], '__len__') or len(met['Yp']) == 0:
                 print("No yield coefficients for product defined in biologicals, assuming 0 for all phenotypes.")
                 met['Yp'] = [0.0] * len(met['N'])
             elif len(met['Yp']) != len(met['N']):
                 raise ValueError("Mismatch in number of yield coefficients for product and phenotypes.")
             met['Yp'] = np.array(met['Yp'], dtype=float)
-            if not met['I']:
+            if not hasattr(met['I'], '__len__') or len(met['I']) == 0:
                 print("No inhibition constants defined in biologicals, assuming None for all phenotypes.")
                 met['I'] = [None] * len(met['N'])
             elif len(met['I']) != len(met['N']):
                 raise ValueError("Mismatch in number of inhibition constants and phenotypes.")
-            if not met['Ki']:
+            if not hasattr(met['Ki'], '__len__') or len(met['Ki']) == 0:
                 print("No product inhibition constants defined in biologicals, assuming sys.maxsize for all phenotypes.")
                 met['Ki'] = [sys.maxsize] * len(met['N'])
             elif len(met['Ki']) != len(met['N']):
@@ -196,8 +196,8 @@ class bioreactor:
         print(f"Bioreactor state at time {self.time} hours.")
         print(f"biologicals Components: {self.biologicals}")
         print(f"parameters Components: {self.parameters}")
-    
-    def operate_dt(self,operation,verbose=False):
+
+    def operate_dt(self,operation,verbose=False,output=False):
     # Update bioreactor volume based on inflow and outflow rates
     # VOLUME
         dV=+ operation.parameters['F_in'] * operation.dt - operation.parameters['F_out'] * operation.dt + operation.parameters['V_pl']* operation.parameters['PVA']
@@ -208,9 +208,8 @@ class bioreactor:
             self.parameters[metabolite] += -self.parameters[metabolite] * operation.parameters['F_out'] * operation.dt
 
         for biomass in range(len(self.biologicals['X'])):
-            print(f"Biomass {biomass} concentration before outflow: {self.biologicals['X'][biomass]}")
             self.biologicals['X'][biomass] += - self.biologicals['X'][biomass] * operation.parameters['F_out'] * operation.dt
-            print(- self.biologicals['X'][biomass] * operation.parameters['F_out'] * operation.dt)
+            
     # Inflow on MASS effects
         for metabolite in operation.parameters['M_in']:
             if metabolite not in self.parameters:
@@ -283,6 +282,7 @@ class bioreactor:
                 else:
                     raise ValueError(f"Unknown metabolic regulation type: {self.biologicals['met'][biomass]['type']}. Currently supported types are 'None', 'inhibition', and 'expression_regulation'.")
                 # Outputting Biologicals feedback to the bioreactor
+                #Calculate the real actual substrate uptake rate
                 So= self.parameters[S]
                 self.parameters[S] -= mu[ph_index-1] / Yx * Xi * operation.dt
                 if self.parameters[S] < 0:
@@ -290,21 +290,23 @@ class bioreactor:
                     dS= So 
                 else:
                     dS= mu[ph_index-1] / Yx * Xi * operation.dt
+                # Calculate the actual product formation rate    
                 if pflag:
                     self.parameters[P] += Yp*dS
                     if self.parameters[P] < 0:
                         self.parameters[P] = 0.0
-                print(self.biologicals['X'][biomass])
+                # Calculate the actual biomass growth rate
                 self.biologicals['X'][biomass] += Yx*dS
                 if self.biologicals['X'][biomass] < 0:
                     self.biologicals['X'][biomass] = 0.0
-                print(self.biologicals['X'][biomass])
+                
 
         #return self, mu, qs, qp
 
         self.time += operation.dt
         if verbose:
             print(f"Bioreactor state updated to {self.time} hours.")
+        if output:
             return dV, Yx*dS/operation.dt/Xi, dS/operation.dt/Xi, Yp*dS/operation.dt/Xi
 
         
