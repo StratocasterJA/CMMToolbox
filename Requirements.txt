@@ -5,3 +5,5 @@ We would need the integration of P6 in the model which correspond to the feeding
 Based on the model, we would need to have output variables in mL/min (or RPM) --> it can be based on % of predefined variables as P2min, P3min, P6min, P2max, P3max, P6max and P2start, P3start, P6start
 
 We would need the implementation of FCS reading for finetuning the model. In the FCS reading, we would need to be able to add our gate and threshold (R1 and R2 for instance)
+
+We would need a watchdog (C++) to activate the change in the model (after finetuning) and that will do the link between model, python pump code and pump
